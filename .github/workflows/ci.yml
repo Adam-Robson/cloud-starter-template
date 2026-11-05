@@ -1,0 +1,91 @@
+# Continuous Integration workflow that will do a clean install
+# of the project's dependencies, build the source code, typecheck
+# and then run the test suite for both the frontend and the
+# backend of the project.
+# # For more information see:
+# https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
+
+name: Continuous Integration
+
+permissions:
+  contents: read
+
+on:
+
+  push:
+    branches: [main]
+
+  pull_request:
+    branches: [main]
+
+  workflow_dispatch: # Manually trigger workflow
+
+jobs:
+
+  backend-build:
+    runs-on: ubuntu-latest
+    strategy:
+
+      fail-fast: false # One failing version will not cancel another
+      matrix:
+        python-version: ['3.12', '3.13', '3.14-dev']
+
+    steps:
+
+      - name: Checkout for Quality Assurance
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Dependency sync
+        run: uv sync --locked --all-extras --dev
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format
+        run: uv run ruff format --check .
+
+      - name: Typecheck
+        run: uv run mypy .
+
+      - name: Test
+        run: uv run pytest
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    strategy:
+
+      fail-fast: false # One failing version will not cancel another
+      matrix:
+        node-version: ['22', '24']
+
+    steps:
+
+      - name: Checkout for Quality Assurance
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Dependency sync
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
