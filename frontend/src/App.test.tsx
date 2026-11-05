@@ -1,9 +1,8 @@
 import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-
-import App from './App';
 import { createFakeBackend, makeItem } from '../test/fakeBackend';
 import { renderWithApi } from '../test/renderWithApi';
+import App from './App';
 
 describe('App', () => {
   it('shows API health and the first page of items', async () => {
