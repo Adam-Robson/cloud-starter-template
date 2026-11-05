@@ -11,4 +11,3 @@ export function createApiClient(
 ): ApiClient {
   return createClient<paths>({ baseUrl, fetch });
 }
-  

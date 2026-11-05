@@ -1,7 +1,4 @@
-import {
-  useMutation,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useApiClient } from '../context/use-api-client';
 import { unwrap } from '../utils/unwrap';
