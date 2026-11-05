@@ -1,6 +1,6 @@
+import { ApiError } from '../api/api-error';
 import type { ApiResult } from '../lib/types/api-result';
 import type { Success } from '../lib/types/success';
-import { ApiError } from '../api/api-error';
 import { isSuccess } from './is-success';
 
 /** Returns the response data, or throws an ApiError on failure. */

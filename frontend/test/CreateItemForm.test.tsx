@@ -1,9 +1,8 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-
+import { CreateItemForm } from '../src/lib/components/CreateItemForm';
 import { createFakeBackend } from './fakeBackend';
 import { renderWithApi } from './renderWithApi';
-import { CreateItemForm } from '../src/lib/components/CreateItemForm';
 
 function fillAndSubmit(name: string, description = '') {
   fireEvent.change(screen.getByLabelText('Name'), {

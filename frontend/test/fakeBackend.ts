@@ -1,6 +1,6 @@
 import type { CreateItem } from '../src/lib/types/create-item';
-import type { Item } from '../src/lib/types/item';
 import type { ErrorResponse } from '../src/lib/types/error-response';
+import type { Item } from '../src/lib/types/item';
 
 type Handler = (request: Request) => Promise<Response>;
 

@@ -1,9 +1,8 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-
+import { ItemList } from '../src/lib/components/ItemList';
 import { createFakeBackend, makeItem } from './fakeBackend';
 import { renderWithApi } from './renderWithApi';
-import { ItemList } from '../src/lib/components/ItemList';
 
 const seed = (count: number) =>
   Array.from({ length: count }, (_, i) => makeItem(i + 1));
