@@ -1,7 +1,6 @@
 import { useState } from 'react';
-
-import { useItems } from '../../hooks/use-items';
 import { useDeleteItem } from '../../hooks/use-delete-item';
+import { useItems } from '../../hooks/use-items';
 
 const PAGE_SIZE = 10;
 
