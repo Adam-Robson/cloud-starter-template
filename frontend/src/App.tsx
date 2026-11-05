@@ -1,6 +1,6 @@
-import { CreateItemForm } from './components/CreateItemForm';
-import { HealthStatus } from './components/HealthStatus';
-import { ItemList } from './components/ItemList';
+import { CreateItemForm } from './lib/components/CreateItemForm';
+import { HealthStatus } from './lib/components/HealthStatus';
+import { ItemList } from './lib/components/ItemList';
 
 export default function App() {
   return (

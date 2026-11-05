@@ -2,8 +2,8 @@ import { QueryClient } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import { ApiProvider } from './api/ApiProvider';
-import { createApiClient } from './api/client';
+import { createApiClient } from './api/create-api-client';
+import { ApiProvider } from './context/api-provider';
 import './index.css';
 
 const root = document.getElementById('root');
