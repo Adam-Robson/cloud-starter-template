@@ -1,0 +1,100 @@
+# Continuous Integration workflow that will do a clean install
+# of the project's dependencies, build the source code, typecheck
+# and then run the test suite for both the frontend and the
+# backend of the project.
+# # For more information see:
+# https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
+
+name: Continuous Integration
+
+permissions:
+  contents: read
+
+on:
+
+  push:
+    branches: [main]
+
+  pull_request:
+    branches: [main]
+
+  workflow_dispatch: # Manually trigger workflow
+
+jobs:
+
+  backend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend # pyproject.toml and uv.lock live here
+    strategy:
+
+      fail-fast: false # One failing version will not cancel another
+      matrix:
+        # pyproject.toml requires Python >= 3.13
+        python-version: ['3.13', '3.14']
+
+    steps:
+
+      - name: Checkout for Quality Assurance
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Dependency sync
+        run: uv sync --locked --all-extras --dev
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format
+        run: uv run ruff format --check .
+
+      - name: Typecheck
+        run: uv run mypy
+
+      - name: Test
+        run: uv run pytest
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend # package.json lives here
+    strategy:
+
+      fail-fast: false # One failing version will not cancel another
+      matrix:
+        node-version: ['22', '24']
+
+    steps:
+
+      - name: Checkout for Quality Assurance
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Dependency sync
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
