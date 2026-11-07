@@ -14,6 +14,33 @@ Python backend environment managed by uv.
   `response_model`. Non-2xx responses raise `HttpStatusError`, and network
   failures raise `HttpTransportError` (both from `backend.lib.exceptions`).
 - `backend.db`: storage behind `Protocol`s such as `ItemRepository`.
+  `create_item_repository(settings)` picks the in-memory store (default)
+  or `FirestoreItemRepository`.
+
+## Configuration
+
+Read from the environment (or `.env`) by `backend.config.Settings`:
+
+| Variable         | Default                                       | Purpose                              |
+| ---------------- | --------------------------------------------- | ------------------------------------ |
+| `CORS_ORIGINS`   | `http://localhost:5173,http://localhost:3000` | Comma-separated allowed origins      |
+| `PORT`           | `8080`                                        | Port uvicorn listens on              |
+| `STORAGE`        | `memory`                                      | `memory` or `firestore`              |
+| `GCP_PROJECT_ID` | unset                                         | Required when `STORAGE=firestore`    |
+
+### Firestore
+
+Items are stored in the `items` collection of the project's default
+Firestore database (Native mode). Credentials come from Application
+Default Credentials, so there are no key files:
+
+- Locally: `gcloud auth application-default login`, then run with
+  `STORAGE=firestore GCP_PROJECT_ID=<sandbox-project>`.
+- On Cloud Run: the service account, which needs only
+  `roles/datastore.user`.
+
+Tests never touch Firestore: `test/test_firestore_items.py` runs the
+repository against a mocked collection.
 
 ```python
 from backend.clients import AsyncHttpClient

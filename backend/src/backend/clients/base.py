@@ -1,4 +1,4 @@
-'''Async wrapper around httpx for calling HTTP services.'''
+'''Async wrapper around httpx for HTTP services.'''
 
 from collections.abc import Mapping
 from types import TracebackType
@@ -12,23 +12,9 @@ from backend.lib.exceptions import HttpStatusError, HttpTransportError
 
 
 class AsyncHttpClient:
-    '''Typed async wrapper around httpx for calling HTTP services.
-
-    ``send`` performs the call and maps failures to client errors;
-    ``request`` and the verb helpers also validate the response body into
-    ``response_model``, which may be a model, ``list[Model]`` or
-    ``Page[Model]``.
-
-    Subclass it per upstream service and expose typed methods::
-
-        class WidgetClient(AsyncHttpClient):
-            async def get_widget(self, widget_id: str) -> Widget:
-                return await self.get(f'/widgets/{widget_id}', Widget)
-
-        async with WidgetClient(base_url='https://api.example.com') as c:
-            widget = await c.get_widget('abc')
     '''
-
+    Typed async wrapper around httpx for calling HTTP services.
+    '''
     def __init__(
         self,
         base_url: str,
@@ -59,16 +45,23 @@ class AsyncHttpClient:
         await self._client.aclose()
 
     async def send(
-        self, method: str, path: str, **options: Unpack[RequestOptions]
+        self, 
+        method: str, 
+        path: str, 
+        **options: Unpack[RequestOptions]
     ) -> httpx.Response:
         model = options.get('json')
         body = (
-            model.model_dump(mode='json', by_alias=True, exclude_none=True)
+            model.model_dump(
+                mode='json', 
+                by_alias=True, 
+                exclude_none=True
+            )
             if model is not None
             else None
         )
         try:
-            response = await self._client.request(
+            res = await self._client.request(
                 method,
                 path,
                 json=body,
@@ -78,14 +71,14 @@ class AsyncHttpClient:
         except httpx.TransportError as e:
             raise HttpTransportError(method, path, e) from e
 
-        if not response.is_success:
+        if not res.is_success:
             raise HttpStatusError(
                 method,
-                str(response.url),
-                response.status_code,
-                _read_body(response),
+                str(res.url),
+                res.status_code,
+                _read_body(res),
             )
-        return response
+        return res
 
     async def request[T](
         self,
@@ -94,8 +87,10 @@ class AsyncHttpClient:
         response_model: type[T],
         **options: Unpack[RequestOptions],
     ) -> T:
-        response = await self.send(method, path, **options)
-        return TypeAdapter(response_model).validate_json(response.content)
+        res = await self.send(
+            method, path, **options
+        )
+        return TypeAdapter(response_model).validate_json(res.content)
 
     async def get[T](
         self,
@@ -103,7 +98,9 @@ class AsyncHttpClient:
         response_model: type[T],
         **options: Unpack[RequestOptions],
     ) -> T:
-        return await self.request('GET', path, response_model, **options)
+        return await self.request(
+            'GET', path, response_model, **options
+        )
 
     async def post[T](
         self,
@@ -111,7 +108,9 @@ class AsyncHttpClient:
         response_model: type[T],
         **options: Unpack[RequestOptions],
     ) -> T:
-        return await self.request('POST', path, response_model, **options)
+        return await self.request(
+            'POST', path, response_model, **options
+        )
 
     async def put[T](
         self,
@@ -119,7 +118,9 @@ class AsyncHttpClient:
         response_model: type[T],
         **options: Unpack[RequestOptions],
     ) -> T:
-        return await self.request('PUT', path, response_model, **options)
+        return await self.request(
+            'PUT', path, response_model, **options
+        )
 
     async def patch[T](
         self,
@@ -127,17 +128,23 @@ class AsyncHttpClient:
         response_model: type[T],
         **options: Unpack[RequestOptions],
     ) -> T:
-        return await self.request('PATCH', path, response_model, **options)
+        return await self.request(
+            'PATCH', path, response_model, **options
+        )
 
     async def delete(
-        self, path: str, **options: Unpack[RequestOptions]
+        self, 
+        path: str, 
+        **options: Unpack[RequestOptions]
     ) -> None:
-        await self.send('DELETE', path, **options)
+        await self.send(
+            'DELETE', path, **options
+        )
 
 
-def _read_body(response: httpx.Response) -> Any:
+def _read_body(res: httpx.Response) -> Any:
     '''Parse an error body as JSON, falling back to raw text.'''
     try:
-        return response.json()
+        return res.json()
     except ValueError:
-        return response.text
+        return res.text

@@ -6,6 +6,7 @@ readme = 'README.md'
 requires-python = '>=3.13'
 dependencies = [
   'fastapi>=0.162.0',
+  "google-cloud-firestore>=2.34.1",
   'httpx',
   'pydantic',
   'python-dotenv',
@@ -86,6 +87,8 @@ files = ['src', 'test']
 strict = true
 warn_unreachable = true
 pretty = true
+# google-api-core leaves exception constructors unannotated upstream.
+untyped_calls_exclude = ['google.api_core.exceptions']
 
 [tool.coverage.run]
 source = ['src']
