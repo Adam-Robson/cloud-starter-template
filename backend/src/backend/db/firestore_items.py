@@ -5,6 +5,7 @@ from google.cloud.firestore import (
     AsyncClient,
     AsyncCollectionReference,
     AsyncDocumentReference,
+    AsyncQuery,
 )
 from google.cloud.firestore_v1.async_aggregation import AsyncAggregationQuery
 from google.cloud.firestore_v1.base_document import DocumentSnapshot
@@ -59,7 +60,9 @@ class FirestoreItemRepository:
 
     async def _count(self) -> int:
         '''Server-side count aggregation; no documents are read.'''
-        aggregation = AsyncAggregationQuery(self._collection)
+        # An aggregation wraps a query, not a collection; this mirrors what
+        # the untyped AsyncCollectionReference.count() builds internally.
+        aggregation = AsyncAggregationQuery(AsyncQuery(self._collection))
         aggregation.count(alias=COUNT_ALIAS)
         results = await aggregation.get()
         return int(results[0][0].value)
