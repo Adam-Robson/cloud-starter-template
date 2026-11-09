@@ -5,7 +5,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from google.api_core.exceptions import NotFound
-from google.cloud.firestore import AsyncDocumentReference
+from google.cloud.firestore import (
+    AsyncCollectionReference,
+    AsyncDocumentReference,
+)
+from google.cloud.firestore_v1.async_aggregation import AsyncAggregationQuery
 from google.cloud.firestore_v1.base_aggregation import AggregationResult
 from google.cloud.firestore_v1.base_document import DocumentSnapshot
 from pytest_mock import MockerFixture
@@ -35,8 +39,12 @@ async def stream(*snapshots: Snapshot) -> AsyncIterator[Snapshot]:
 
 @pytest.fixture
 def collection() -> MagicMock:
-    '''Stand-in for an AsyncCollectionReference.'''
-    return MagicMock()
+    '''Stand-in for an AsyncCollectionReference.
+
+    The spec rejects attributes the real class lacks, so the repository
+    cannot rely on methods a collection does not have.
+    '''
+    return MagicMock(spec=AsyncCollectionReference)
 
 
 @pytest.fixture
@@ -53,11 +61,12 @@ async def test_list_page_queries_in_order_and_counts(
     query.limit.return_value.stream.return_value = stream(
         snapshot('a', stored('A')), snapshot('b', stored('B'))
     )
-    aggregation = mocker.patch(
-        'backend.db.firestore_items.AsyncAggregationQuery'
-    ).return_value
-    aggregation.get = AsyncMock(
-        return_value=[[AggregationResult(alias='total', value=7)]]
+    # Only the network call is stubbed; the real aggregation is built.
+    count_get = mocker.patch.object(
+        AsyncAggregationQuery,
+        'get',
+        autospec=True,
+        return_value=[[AggregationResult(alias='total', value=7)]],
     )
 
     items, total = await repository.list_page(offset=2, limit=2)
@@ -70,7 +79,9 @@ async def test_list_page_queries_in_order_and_counts(
     collection.order_by.assert_called_once_with('created_at')
     collection.order_by.return_value.offset.assert_called_once_with(2)
     query.limit.assert_called_once_with(2)
-    aggregation.count.assert_called_once_with(alias='total')
+    aggregation = count_get.call_args.args[0]
+    assert aggregation._collection_ref is collection
+    assert [each.alias for each in aggregation._aggregations] == ['total']
 
 
 async def test_get_returns_item(
