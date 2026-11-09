@@ -1,0 +1,137 @@
+# Continuous Deployment workflow. After the Continuous Integration
+# workflow passes on a push to main, it builds the backend and frontend
+# container images, pushes them to Artifact Registry and deploys each
+# one to Cloud Run. The backend is deployed first because the frontend's
+# nginx proxy needs the backend's URL.
+#
+# Authentication uses Workload Identity Federation: GitHub issues a
+# short-lived OIDC token that Google exchanges for the deployer service
+# account's credentials, so no key file is stored anywhere.
+#
+# The one-time Google Cloud setup and the repository variables this
+# workflow reads are described in DEPLOYMENT.md.
+
+name: Continuous Deployment
+
+on:
+
+  workflow_run:
+    workflows: [Continuous Integration]
+    types: [completed]
+    branches: [main]
+
+  workflow_dispatch: # Manually trigger a deployment of main
+
+permissions:
+  contents: read
+  id-token: write # Request the OIDC token exchanged for GCP credentials
+
+concurrency:
+  group: deploy # Never run two deployments at the same time
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGION: ${{ vars.GCP_REGION }}
+  REGISTRY: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}
+  # The commit CI tested; a manual run deploys the current commit.
+  SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+jobs:
+
+  backend-deploy:
+    # Deploy only when CI succeeded for a push (not a pull request).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+
+      - name: Checkout the tested commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Install gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+
+      - name: Build and push the image
+        run: |
+          docker build --tag "$REGISTRY/backend:$SOURCE_SHA" backend
+          docker push "$REGISTRY/backend:$SOURCE_SHA"
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        env:
+          SERVICE_ACCOUNT: ${{ vars.GCP_BACKEND_SERVICE_ACCOUNT }}
+        run: |
+          gcloud run deploy backend \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --image "$REGISTRY/backend:$SOURCE_SHA" \
+            --service-account "$SERVICE_ACCOUNT" \
+            --set-env-vars "STORAGE=firestore,GCP_PROJECT_ID=$PROJECT_ID" \
+            --allow-unauthenticated \
+            --quiet
+          url=$(gcloud run services describe backend \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --format 'value(status.url)')
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+  frontend-deploy:
+    needs: backend-deploy
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout the tested commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Install gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+
+      - name: Build and push the image
+        run: |
+          docker build --tag "$REGISTRY/frontend:$SOURCE_SHA" frontend
+          docker push "$REGISTRY/frontend:$SOURCE_SHA"
+
+      - name: Deploy to Cloud Run
+        env:
+          SERVICE_ACCOUNT: ${{ vars.GCP_FRONTEND_SERVICE_ACCOUNT }}
+          API_URL: ${{ needs.backend-deploy.outputs.url }}
+        run: |
+          gcloud run deploy frontend \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --image "$REGISTRY/frontend:$SOURCE_SHA" \
+            --service-account "$SERVICE_ACCOUNT" \
+            --set-env-vars "API_URL=$API_URL" \
+            --allow-unauthenticated \
+            --quiet

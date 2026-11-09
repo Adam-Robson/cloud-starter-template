@@ -1,8 +1,8 @@
 # base
 FROM python:3.13.4-slim
 
-# uv install
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# uv install, pinned so image builds are reproducible
+COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /uvx /bin/
 
 # optimize python
 ENV UV_COMPILE_BYTECODE=1
